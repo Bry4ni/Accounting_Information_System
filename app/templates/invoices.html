@@ -1,0 +1,223 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container py-4">
+  <div class="card mb-3">
+    <div class="card-body d-flex justify-content-between align-items-center">
+      <div>
+        <h4 class="mb-0 fw-bold">Invoice Management</h4>
+        <small class="muted-small">Create and manage invoices and installment plans</small>
+      </div>
+      <div class="d-flex align-items-center gap-3">
+        <div class="d-flex align-items-center gap-2">
+          <label class="fw-semibold mb-0">Filter:</label>
+          <select id="statusFilter" class="form-select form-select-sm" style="width: 200px;">
+            <option value="all">All Invoices</option>
+            <option value="pending">Pending</option>
+            <option value="partial">Partial Payment</option>
+            <option value="paid">Paid</option>
+            <option value="overdue">Overdue</option>
+          </select>
+        </div>
+        {% if current_user.role == 'owner' %}
+        <button class="btn btn-dark" data-bs-toggle="modal" data-bs-target="#addInvoiceModal">
+          <i class="bi bi-plus-lg me-1"></i> Create Invoice
+        </button>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Invoices Table -->
+  <div class="table-responsive shadow-sm rounded bg-white">
+    <table class="table align-middle mb-0">
+      <thead class="table-light">
+        <tr>
+          <th>Invoice #</th>
+          <th>Client</th>
+          <th>Description</th>
+          <th>Amount</th>
+          <th>Payment Type</th>
+          <th>Paid / Remaining</th>
+          <th>Due Date</th>
+          <th>Status</th>
+          {% if current_user.role == 'owner' %}
+          <th>Actions</th>
+          {% endif %}
+        </tr>
+      </thead>
+      <tbody id="invoiceTable">
+        {% for inv in invoices %}
+        <tr data-status="{{ inv.status|lower }}">
+          <td><i class="bi bi-file-text me-2 text-secondary"></i>{{ inv.invoice_no }}</td>
+          <td>
+            <div class="fw-semibold">{{ inv.client.name if inv.client else 'N/A' }}</div>
+            <div class="text-muted small">{{ inv.client.company if inv.client else '' }}</div>
+          </td>
+          <td>{{ inv.description }}</td>
+          <td>₱{{ '%.2f'|format(inv.amount) }}</td>
+          <td>
+            {% if inv.payment_type and inv.payment_type.lower().startswith('install') %}
+              <span class="badge bg-secondary">Installment</span>
+              <div class="small text-muted">{{ inv.installments }}x ₱{{ '%.2f'|format(inv.amount/inv.installments) }}</div>
+            {% else %}
+              <span class="badge bg-dark">Full Payment</span>
+            {% endif %}
+          </td>
+          <td>
+            <div class="text-success">₱{{ '%.2f'|format(inv.paid or 0) }}</div>
+            <div class="text-danger small">₱{{ '%.2f'|format(inv.amount - (inv.paid or 0)) }}</div>
+          </td>
+          <td>{{ inv.due_date.strftime('%m/%d/%Y') if inv.due_date else '' }}</td>
+          <td>
+            {% if inv.status == 'paid' %}
+              <span class="badge bg-success">Paid</span>
+            {% elif inv.status == 'partial' %}
+              <span class="badge bg-warning text-dark">Partial</span>
+            {% elif inv.status == 'overdue' %}
+              <span class="badge bg-danger">Overdue</span>
+            {% else %}
+              <span class="badge bg-secondary">Pending</span>
+            {% endif %}
+          </td>
+          {% if current_user.role == 'owner' %}
+          <td>
+            <form method="POST" action="{{ url_for('invoices.delete_invoice', id=inv.id) }}" onsubmit="return confirm('Delete invoice?')" style="display:inline;">
+              <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+            </form>
+          </td>
+          {% endif %}
+        </tr>
+        {% else %}
+        <tr><td colspan="9" class="text-center py-3 text-muted">No invoices found.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Add Invoice Modal -->
+<div class="modal fade" id="addInvoiceModal" tabindex="-1" aria-labelledby="addInvoiceModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title fw-semibold">Create New Invoice</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="POST" action="{{ url_for('invoices.add_invoice') }}">
+        <div class="modal-body">
+          <p class="text-muted small mb-3">
+            Fill in the invoice details including client, amount, and payment terms.
+          </p>
+
+          <!-- Client -->
+          <div class="mb-3">
+            <label class="form-label">Client</label>
+            <select class="form-select" name="client_id" required>
+              <option value="">Select a client</option>
+              {% for c in clients %}
+                <option value="{{ c.id }}">{{ c.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <!-- Amount and Dates -->
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label class="form-label">Amount (₱)</label>
+              <input type="number" name="amount" class="form-control" required>
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="form-label">Issue Date</label>
+              <input type="date" name="issue_date" class="form-control" required>
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">Due Date</label>
+            <input type="date" name="due_date" class="form-control" required>
+          </div>
+
+          <!-- Description -->
+          <div class="mb-3">
+            <label class="form-label">Description</label>
+            <textarea name="description" class="form-control" rows="2"></textarea>
+          </div>
+
+          <!-- Payment Type -->
+          <div class="mb-3">
+            <label class="form-label">Payment Type</label>
+            <div>
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" name="payment_type" value="full" id="fullPayment" checked>
+                <label class="form-check-label" for="fullPayment">Full Payment</label>
+              </div>
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" name="payment_type" value="installment" id="installmentPlan">
+                <label class="form-check-label" for="installmentPlan">Installment Plan</label>
+              </div>
+            </div>
+          </div>
+
+          <!-- Installment Options (hidden by default) -->
+          <div id="installmentOptions" class="border rounded p-3 bg-light mb-3" style="display: none;">
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <label class="form-label">Number of Installments</label>
+                <input type="number" name="installments" min="1" value="1" class="form-control">
+              </div>
+              <div class="col-md-6 mb-3">
+                <label class="form-label">Frequency</label>
+                <select name="frequency" class="form-select">
+                  <option value="monthly">Monthly</option>
+                  <option value="biweekly">Bi-weekly</option>
+                  <option value="weekly">Weekly</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+          <button class="btn btn-dark">Create Invoice</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- JS for toggling Installment fields -->
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const full = document.getElementById("fullPayment");
+  const installment = document.getElementById("installmentPlan");
+  const options = document.getElementById("installmentOptions");
+
+  const toggleInstallmentFields = () => {
+    options.style.display = installment.checked ? "block" : "none";
+  };
+
+  full.addEventListener("change", toggleInstallmentFields);
+  installment.addEventListener("change", toggleInstallmentFields);
+});
+document.addEventListener("DOMContentLoaded", () => {
+  const filter = document.getElementById("statusFilter");
+  const rows = document.querySelectorAll("#invoiceTable tr");
+
+  filter.addEventListener("change", () => {
+    const selected = filter.value;
+    rows.forEach(row => {
+      const status = row.getAttribute("data-status");
+      if (selected === "all" || status === selected) {
+        row.style.display = "";
+      } else {
+        row.style.display = "none";
+      }
+    });
+  });
+});
+
+</script>
+
+
+{% endblock %}
