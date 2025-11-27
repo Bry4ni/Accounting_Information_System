@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="min-vh-100 d-flex align-items-center justify-content-center" style="background: linear-gradient(135deg,#fff7ed 0%, #fff1f2 100%);">
+  <div class="card shadow-lg" style="width:640px;">
+    <div class="card-body p-4">
+      <div class="text-center mb-3">
+        <div class="mx-auto mb-2" style="width:64px;height:64px;border-radius:12px;background:linear-gradient(90deg,#7c3aed,#ec4899);display:flex;align-items:center;justify-content:center;">
+          <i class="bi bi-person-plus" style="color:white;font-size:26px"></i>
+        </div>
+        <h4 class="mb-0">Create Account</h4>
+        <small class="text-muted">Join our accounting platform to manage your finances</small>
+      </div>
+
+      <form method="POST" action="{{ url_for('auth.register') }}">
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label">Full Name</label>
+            <input class="form-control" name="username" required>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Email</label>
+            <input type="email" class="form-control" name="email">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Password</label>
+            <input type="password" class="form-control" name="password" required>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Role</label>
+            <select name="role" class="form-select" required>
+              <option value="client" selected>Client</option>
+              <option value="owner">Owner</option>
+            </select>
+          </div>
+          <div class="col-12">
+            <label class="form-label">Company (optional)</label>
+            <input class="form-control" name="company">
+          </div>
+          <div class="col-12">
+            <label class="form-label">Phone (optional)</label>
+            <input class="form-control" name="phone">
+          </div>
+        </div>
+
+        <div class="mt-4 d-flex gap-2">
+          <button class="btn btn-primary w-100" type="submit">Create Account</button>
+          <a class="btn btn-outline-secondary" href="{{ url_for('auth.login') }}">Back to Login</a>
+        </div>
+      </form>
+
+      <div class="text-center mt-3">
+        <small class="text-muted">Already have an account? <a href="{{ url_for('auth.login') }}">Sign in</a></small>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
